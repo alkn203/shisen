@@ -67,6 +67,20 @@ phina.define('MainScene', {
     this.elem.canvas.context.lineWidth = 4;
     // グループ
     this.tileGroup = DisplayElement().addChildTo(this);
+    // ラベルボタン
+    this.button  = Button({
+      text: '詰み',
+      fontSize: 48,
+      width: 180,
+    }).addChildTo(this);
+    this.button.setInteractive(false).hide();
+    
+    var self = this;
+    this.button.setPosition(this.gx.center(), this.gy.center());
+    this.button.onpush = function() {
+      this.setInteractive(false).hide();
+      self.initGame();
+    };
     // ペア
     this.pair = [];
     // ラインの頂点配列
@@ -75,6 +89,7 @@ phina.define('MainScene', {
     this.initGame();
   },
   /**
+   * @method initGame
    * ゲームを初期化する
    */
   initGame: function() {
@@ -85,7 +100,6 @@ phina.define('MainScene', {
     this.redrawTiles();
     // クリアできる配置でなければ再配置
     if (!this.canClear()) {
-      console.log('check');
       this.initGame();
     }
     else {
@@ -95,6 +109,7 @@ phina.define('MainScene', {
     }
   },
   /**
+   * @method locateTiles
    * 牌を配置する
    */
   locateTiles: function() {
@@ -119,19 +134,24 @@ phina.define('MainScene', {
     });
   },
   /**
+   * @method canClear
    * 初期配置でクリアできるかチェックする
    * @return {boolean} 真偽値を返す
    */
   canClear: function() {
     // 牌の数分繰り返す
     (136).times(function(i) {
-      this.canRemove();
+      if (this.canRemove()) {
+        this.deletePair();
+      }
     }, this);
     // 全て削除できた場合 
     if (this.tileGroup.children.length === 0) return true;
+    this.clearPair();
     return false;
   },
   /**
+   * @method canRemove
    * 消せる牌があるかチェックする
    * @return {boolean} 真偽値を返す
    */
@@ -148,15 +168,8 @@ phina.define('MainScene', {
             this.pair.push(p1);
             this.pair.push(p2);
 
-            if (this.checkPair()) {
-              p1.remove();
-              p2.remove();
-              this.clearPair();
-              return true;
-            }
-            else {
-              this.clearPair();
-            }
+            if (this.checkPair()) return true;
+            this.clearPair();
           }
         }
       }  
@@ -164,6 +177,7 @@ phina.define('MainScene', {
     return false;
   },
   /**
+   * @method setTileData
    * 麻雀牌データの設定
    */
   setTileData: function() {
@@ -180,6 +194,7 @@ phina.define('MainScene', {
     this.tileData.shuffle();
   },
   /**
+   * @method connectTileData
    * 麻雀牌データの紐づけ
    */
   connectTileData: function() {
@@ -190,6 +205,7 @@ phina.define('MainScene', {
     });
   },
   /**
+   * @method redrawTiles
    * 麻雀牌画像更新
    */
   redrawTiles: function() {
@@ -201,6 +217,7 @@ phina.define('MainScene', {
     });
   },
   /**
+   * @method selectPair
    * ペアを選択する
    * @param {Object} tile - 麻雀牌クラスのオブジェクト
    */
@@ -240,10 +257,13 @@ phina.define('MainScene', {
                  this.elem.alpha = 0;
                  // ペアの牌を削除
                  this.deletePair();
+                 // 詰まりかどうか
+                 this.checkmate();
                }, this);
     }
   },
   /**
+   * @method clearPair
    * ペアを解除する
    */
   clearPair: function() {
@@ -255,6 +275,7 @@ phina.define('MainScene', {
     this.pair.clear();
   },
   /**
+   * @method deletePair
    * ペアを削除する
    */
   deletePair: function() {
@@ -263,6 +284,32 @@ phina.define('MainScene', {
     this.pair.clear();
   },
   /**
+   * @method checkmate
+   * 詰まりかどうか調べる
+   */
+  checkmate: function() {
+    //
+    if (this.canRemove()) {
+      this.clearPair();
+      return;
+    }
+    //
+    if (this.tileGroup.children.length === 0) {
+      this.button.text = '了';
+      // ラベル表示
+      this.button.setInteractive(true).show();
+      return;
+    }
+    
+    this.tileGroup.children.each(function(tile) {
+      tile.setInteractive(false);  
+    });
+    // ラベル表示
+    this.button.text = '詰み';
+    this.button.setInteractive(true).show();
+  },
+  /**
+   * @method checkPair
    * ペアが消せるかチェックする
    * @return {boolean} 真偽値を返す
    */
@@ -275,7 +322,11 @@ phina.define('MainScene', {
     if (this.checkVertical()) return true;
     return false;
   },
-  // 隣接チェック
+  /**
+   * @method checkNextTo
+   * 隣接ペアかチェックする
+   * @return {boolean} 真偽値を返す
+   */
   checkNextTo: function() {
     var p1 = this.pair.first;
     var p2 = this.pair.last;
@@ -295,7 +346,11 @@ phina.define('MainScene', {
     }
     return false;  
   },
-  // 横方向チェック
+  /**
+   * @method checkHorizontal
+   * 横方向のペアチェック
+   * @return {boolean} 真偽値を返す
+   */
   checkHorizontal: function() {
     var p1 = this.pair.first;
     var p2 = this.pair.last;
@@ -352,7 +407,11 @@ phina.define('MainScene', {
     }
     return false;
   },
-  // 縦方向チェック
+  /**
+   * @method checkVertical
+   * 縦方向のペアチェック
+   * @return {boolean} 真偽値を返す
+   */
   checkVertical: function() {
     var p1 = this.pair.first;
     var p2 = this.pair.last;
@@ -408,7 +467,11 @@ phina.define('MainScene', {
     }
     return false;
   },
-  // 横インデックス範囲内に牌があるかを返す
+  /**
+   * @method isTileInRangeI
+   * 横インデックス範囲内に牌があるかを調べる
+   * @return {boolean} 真偽値を返す
+   */
   isTileInRangeI: function(i1, i2, j) {
     var result = false;
     
@@ -420,7 +483,11 @@ phina.define('MainScene', {
     });
     return result;
   },
-  // 縦インデックス範囲内に牌があるかを返す
+  /**
+   * @method isTileInRangeJ
+   * 縦インデックス範囲内に牌があるかを調べる
+   * @return {boolean} 真偽値を返す
+   */
   isTileInRangeJ: function(j1, j2, i) {
     var result = false;
     
@@ -432,7 +499,10 @@ phina.define('MainScene', {
     });
     return result;
   },
-  // ライン描画
+  /**
+   * @method drawPiarLine
+   * ペアのラインを描画する
+   */
   drawPiarLine: function() {
     var points = this.points;
     this.elem.canvas.clear();
@@ -447,18 +517,27 @@ phina.define('MainScene', {
     }
   },
 });
-// 麻雀牌クラス
+/**
+ * @class MahjongTile
+ * # 麻雀牌クラス
+ */
 phina.define('MahjongTile', {
   // Spriteを継承
   superClass: 'Sprite',
-  // コンストラクタ
+  /**
+   * @method init
+   * 麻雀牌初期化処理
+   */
   init: function() {
     // 親クラス初期化
     this.superInit('tiles', 30, 40);
     // タッチ可能にする
     this.setInteractive(true);
   },
-  // 枠表示
+  /**
+   * @method drawFrame
+   * 麻雀牌に枠を表示する
+   */
   drawFrame: function() {
     RectangleShape({
       width: GRID_SIZE_X,
@@ -467,7 +546,10 @@ phina.define('MahjongTile', {
       stroke: 'red',
     }).addChildTo(this);
   },
-  // 枠消去
+  /**
+   * @method removeFrame
+   * 麻雀牌の枠を消去する
+   */
   removeFrame: function() {
     this.children.clear();
   },
